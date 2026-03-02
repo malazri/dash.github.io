@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Visual Management Board | v4.0</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      /* ── PDO Official Brand Colors ── */
+      --pdo-green:     #006633;   /* PDO primary dark green */
+      --pdo-green-d:   #004422;   /* deeper green for page bg */
+      --pdo-green-m:   #005528;   /* mid green for surfaces */
+      --pdo-green-l:   #007A3D;   /* lighter green for hover states */
+      --pdo-green-xl:  #00A550;   /* bright green accent */
+      --pdo-white:     #FFFFFF;
+      --pdo-offwhite:  #E8F5EE;   /* very light green-tinted white */
+
+      /* ── UI Tokens ── */
+      --bg:       #021A0C;        /* near-black deep green */
+      --surface:  #052E14;        /* card background */
+      --surface2: #083D1C;        /* slightly lighter surface */
+      --border:   rgba(0,166,80,0.12);
+      --border-h: rgba(0,166,80,0.35);
+
+      /* ── Status (functional — unchanged) ── */
+      --green:    #22c55e;        /* KPI on-track */
+      --red:      #ef4444;        /* KPI at-risk */
+      --amber:    #f59e0b;        /* KPI monitor */
+
+      /* ── PDO Accent ── */
+      --accent:   var(--pdo-green-xl);
+      --accent2:  #34D470;
+
+      /* ── Typography ── */
+      --text:     #E8F5EE;
+      --text2:    #A8D4B8;
+      --muted:    #527A60;
+
+      /* ── Effects ── */
+      --radius:   14px;
+      --shadow:   0 4px 28px rgba(0,0,0,0.7);
+      --glow-g:   0 0 18px rgba(34,197,94,0.4);
+      --glow-r:   0 0 18px rgba(239,68,68,0.4);
+      --glow-a:   0 0 18px rgba(0,165,80,0.3);
+      --header-h: 68px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── Viewport lock: no page-level scroll on desktop ── */
+    html, body { height: 100%; overflow: hidden; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+    }
+
+    /* Subtle hex-dot texture in PDO green tones */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background-image:
+        radial-gradient(circle, rgba(0,166,80,0.06) 1px, transparent 1px);
+      background-size: 32px 32px;
+    }
+
+    /* ═══════════ HEADER ═══════════ */
+    .app-header {
+      position: fixed; inset: 0 0 auto 0; z-index: 1000;
+      height: var(--header-h);
+      background: var(--pdo-green);
+      border-bottom: 3px solid var(--pdo-green-xl);
+      box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+      display: flex; align-items: center;
+    }
+
+    .header-inner {
+      width: 100%;
+      padding: 0 24px;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .brand { display: flex; align-items: center; gap: 14px; }
+    .logo {
+      height: 42px;
+      filter: brightness(0) invert(1) drop-shadow(0 1px 6px rgba(0,0,0,0.4));
+    }
+
+    .brand-divider {
+      width: 1px; height: 34px;
+      background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.5), transparent);
+    }
+
+    .brand-text { display: flex; flex-direction: column; }
+    .brand-text .sys-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.55rem; color: rgba(255,255,255,0.65);
+      letter-spacing: 0.22em; text-transform: uppercase;
+    }
+    .brand-text .sys-name {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.05rem; font-weight: 800; color: #fff;
+      letter-spacing: 0.02em; line-height: 1.1;
+    }
+
+    .titles { text-align: center; }
+
+    .loc-pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.25);
+      padding: 5px 16px; border-radius: 20px;
+      cursor: pointer; transition: 0.2s;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem; font-weight: 700;
+      color: #fff;
+    }
+    .loc-pill:hover { background: rgba(255,255,255,0.22); }
+    .loc-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--pdo-green-xl);
+      box-shadow: 0 0 6px var(--pdo-green-xl);
+      animation: blink 2s infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    .header-right { text-align: right; }
+    .datetime-date {
+      font-family: 'Syne', sans-serif; font-size: 0.8rem;
+      font-weight: 600; color: rgba(255,255,255,0.8);
+    }
+    .datetime-time {
+      font-family: 'JetBrains Mono', monospace; font-size: 1rem;
+      font-weight: 700; color: #fff; letter-spacing: 0.06em;
+    }
+    .version-badge {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.52rem;
+      color: rgba(255,255,255,0.45); margin-top: 1px;
+    }
+
+    /* ═══════════ PAGE — VIEWPORT LOCKED ═══════════ */
+    .page {
+      position: relative; z-index: 1;
+      height: calc(100vh - var(--header-h));
+      margin-top: var(--header-h);
+      overflow: hidden;           /* children scroll, page does NOT */
+    }
+
+    /* Two-column layout fills exact viewport height */
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      height: 100%;
+      gap: 0;
+    }
+
+    /* Each column independently scrollable — both capped to viewport */
+    .col-main, .col-side {
+      height: 100%;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 16px 18px 24px;
+    }
+    .col-main { padding-right: 10px; }
+    .col-side {
+      padding-left: 10px;
+      border-left: 1px solid rgba(0,166,80,0.18);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Scrollbar styling — green-themed */
+    .col-main::-webkit-scrollbar,
+    .col-side::-webkit-scrollbar  { width: 4px; }
+    .col-main::-webkit-scrollbar-track,
+    .col-side::-webkit-scrollbar-track { background: transparent; }
+    .col-main::-webkit-scrollbar-thumb,
+    .col-side::-webkit-scrollbar-thumb {
+      background: rgba(0,166,80,0.25); border-radius: 2px;
+    }
+
+    /* ═══════════ SECTION HEADERS ═══════════ */
+    .section-header {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 12px; flex-shrink: 0;
+    }
+    .section-header-line {
+      width: 3px; height: 20px; border-radius: 2px;
+      background: linear-gradient(to bottom, var(--pdo-green-xl), transparent);
+    }
+    .section-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 0.72rem; font-weight: 700;
+      color: var(--muted); text-transform: uppercase; letter-spacing: 0.16em;
+    }
+    .section-count {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem; color: var(--pdo-green-xl);
+      background: rgba(0,166,80,0.1); padding: 2px 7px; border-radius: 4px;
+    }
+
+    /* ═══════════ EXECUTIVE SUMMARY ═══════════ */
+    .exec-grid {
+      display: flex; flex-wrap: wrap;
+      gap: 10px; margin-bottom: 18px;
+    }
+
+    .exec-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      display: flex; align-items: center; gap: 10px;
+      transition: transform 0.2s, border-color 0.2s;
+      animation: fadeSlideUp 0.4s ease both;
+      min-width: 150px; flex: 1;
+    }
+    .exec-card:hover { transform: translateY(-2px); }
+    .exec-card.status-green { border-color: rgba(34,197,94,0.4);  box-shadow: var(--glow-g); }
+    .exec-card.status-red   { border-color: rgba(239,68,68,0.4);  box-shadow: var(--glow-r); }
+    .exec-card.status-gray  { border-color: rgba(82,122,96,0.4); }
+
+    @keyframes fadeSlideUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+
+    .face-svg { width: 36px; height: 36px; flex-shrink: 0; }
+
+    .exec-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .exec-name {
+      font-family: 'Syne', sans-serif; font-size: 0.7rem; font-weight: 700;
+      color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .exec-status-tag { font-family: 'JetBrains Mono', monospace; font-size: 0.57rem; font-weight: 700; }
+    .tag-green  { color: var(--green); }
+    .tag-red    { color: var(--red); }
+    .tag-gray   { color: var(--muted); }
+    .tag-nodata { color: var(--muted); }
+
+    /* ═══════════ KPI GRID ═══════════ */
+    .kpi-grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      grid-auto-rows: 1fr;        /* equal-height rows — single = dual height */
+    }
+
+    .kpi-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      display: flex; flex-direction: column;
+      height: 100%;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      animation: fadeSlideUp 0.4s ease both;
+    }
+    .kpi-card:hover { border-color: var(--border-h); box-shadow: 0 0 18px rgba(0,166,80,0.12); }
+
+    .kpi-card-header {
+      display: flex; align-items: flex-start;
+      margin-bottom: 10px; padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .kpi-card-name {
+      font-family: 'Syne', sans-serif;
+      font-size: 0.82rem; font-weight: 700; color: var(--text); line-height: 1.3;
+    }
+    .kpi-card-sub { font-size: 0.6rem; color: var(--muted); margin-top: 2px; }
+
+    /* Side-by-side patterns, no wrap */
+    .kpi-blocks-wrap {
+      display: flex; flex-direction: row;
+      gap: 10px; justify-content: center; align-items: center;
+      flex-wrap: nowrap; width: 100%; flex: 1;
+    }
+
+    .letter-wrap {
+      display: flex; flex-direction: column; align-items: center; gap: 5px;
+      flex: 1 1 0; min-width: 0; max-width: 200px;
+    }
+    .kpi-blocks-wrap.dual .letter-wrap { max-width: 155px; }
+
+    .s-block-grid { display: grid; gap: 3px; width: 100%; }
+
+    .kpi-block {
+      aspect-ratio: 1/1; width: 100%;
+      border-radius: 3px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.54rem; font-weight: 700;
+      cursor: default; transition: transform 0.15s; line-height: 1;
+    }
+    .kpi-block:hover { transform: scale(1.3); z-index: 10; position: relative; }
+    .kpi-block.empty { background: transparent !important; pointer-events: none; }
+    .kpi-block.unset { background: rgba(0,166,80,0.08); color: rgba(255,255,255,0.2); }
+    .kpi-block.green { background: var(--green);  color: #fff; box-shadow: 0 0 5px rgba(34,197,94,0.5); }
+    .kpi-block.gray  { background: #0D4A22;        color: var(--muted); }
+    .kpi-block.red   { background: var(--red);     color: #fff; box-shadow: 0 0 5px rgba(239,68,68,0.5); }
+
+    .kpi-legend { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+    .legend-pill {
+      display: flex; align-items: center; gap: 3px;
+      font-family: 'JetBrains Mono', monospace; font-size: 0.56rem; color: var(--muted);
+    }
+    .legend-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+    .kpi-last-update {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.54rem; color: var(--muted); text-align: center;
+    }
+
+    /* ═══════════ INFO PANEL — fit to screen ═══════════ */
+    .col-side > .section-header { flex-shrink: 0; }
+
+    .info-grid {
+      display: flex; flex-direction: column;
+      gap: 8px;
+      flex: 1;        /* fill remaining col-side height */
+      min-height: 0;  /* allow shrinking */
+    }
+
+    .info-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 12px 10px 15px;
+      position: relative; overflow: hidden;
+      animation: fadeSlideUp 0.4s ease both;
+      flex: 1;                    /* share height equally */
+      min-height: 0;
+      display: flex; flex-direction: column; justify-content: center;
+      transition: border-color 0.2s;
+    }
+    .info-card:hover { border-color: var(--border-h); }
+
+    .info-card::before {
+      content: '';
+      position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+      background: var(--pdo-green-xl);
+    }
+    .info-card.utility::before { background: var(--amber); }
+
+    .info-card-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 8px;
+    }
+    .info-card-name {
+      font-family: 'Syne', sans-serif;
+      font-size: 0.78rem; font-weight: 700; color: var(--text);
+    }
+    .info-type-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.55rem; font-weight: 700;
+      padding: 2px 7px; border-radius: 4px; text-transform: uppercase;
+    }
+    .badge-housing { background: rgba(0,166,80,0.15);  color: var(--pdo-green-xl); }
+    .badge-utility  { background: rgba(245,158,11,0.15); color: var(--amber); }
+
+    .metrics-row { display: grid; gap: 8px; grid-template-columns: repeat(3,1fr); }
+    .metrics-row.four { grid-template-columns: repeat(2,1fr); }
+
+    .metric-item { display: flex; flex-direction: column; }
+    .metric-lbl {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.5rem; color: var(--muted); text-transform: uppercase;
+      letter-spacing: 0.1em; margin-bottom: 1px;
+    }
+    .metric-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1rem; font-weight: 700; color: var(--text); line-height: 1;
+    }
+    .metric-sub { font-size: 0.58rem; color: var(--muted); margin-top: 2px; }
+
+    /* Occupancy bar */
+    .occ-bar-wrap { margin-top: 6px; }
+    .occ-bar-label {
+      display: flex; justify-content: space-between;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.55rem; color: var(--muted); margin-bottom: 3px;
+    }
+    .occ-bar-bg { height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+    .occ-bar-fill {
+      height: 100%; border-radius: 2px;
+      background: linear-gradient(90deg, var(--pdo-green-xl), var(--accent2));
+      transition: width 1s cubic-bezier(0.4,0,0.2,1);
+    }
+    .occ-bar-fill.high { background: linear-gradient(90deg, #22c55e, #34d399); }
+
+    .info-update {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.5rem; color: var(--muted); margin-top: 5px; text-align: right;
+    }
+
+    /* ═══════════ EMPTY STATES ═══════════ */
+    .empty-state {
+      background: var(--surface); border: 1px dashed var(--border);
+      border-radius: var(--radius); padding: 28px;
+      text-align: center; color: var(--muted);
+    }
+    .empty-state .icon { font-size: 1.6rem; margin-bottom: 6px; }
+    .empty-state p { font-size: 0.78rem; font-weight: 600; }
+    .empty-state small { font-size: 0.62rem; opacity: 0.7; }
+
+    /* ═══════════ MODAL ═══════════ */
+    .modal {
+      position: fixed; inset: 0; z-index: 2000;
+      background: rgba(0,0,0,0.85); backdrop-filter: blur(12px);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .modal-content {
+      background: var(--surface);
+      border: 1px solid rgba(0,166,80,0.3);
+      border-radius: 20px; padding: 32px; width: 90%; max-width: 400px;
+    }
+    .modal-content h2 {
+      font-family: 'Syne', sans-serif; font-size: 1.15rem;
+      font-weight: 700; margin-bottom: 6px; color: var(--text);
+    }
+    .modal-content p { font-size: 0.75rem; color: var(--muted); margin-bottom: 18px; }
+    .loc-btn {
+      width: 100%; padding: 13px 18px; margin: 5px 0;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 10px; font-family: 'Syne', sans-serif;
+      font-weight: 700; font-size: 0.85rem; color: var(--text);
+      cursor: pointer; text-align: left; transition: 0.2s;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .loc-btn:hover { background: rgba(0,166,80,0.1); border-color: var(--border-h); color: var(--pdo-green-xl); }
+
+    /* ═══════════ RESPONSIVE ═══════════ */
+    /* Tablet: single column, natural scroll */
+    @media (max-width: 1024px) {
+      html, body { overflow: auto; height: auto; }
+      .page { height: auto; overflow: visible; }
+      .layout { grid-template-columns: 1fr; height: auto; }
+      .col-main, .col-side { height: auto; overflow: visible; }
+      .col-side { border-left: none; border-top: 1px solid var(--border); }
+      .info-grid { flex: none; }
+      .info-card { flex: none; min-height: 100px; }
+    }
+
+    /* Mobile */
+    @media (max-width: 700px) {
+      :root { --header-h: 100px; }
+      .header-inner { grid-template-columns: 1fr; gap: 6px; text-align: center; }
+      .brand { justify-content: center; }
+      .header-right { text-align: center; }
+      .exec-card { min-width: 130px; }
+      .kpi-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="app-header">
+  <div class="header-inner">
+    <div class="brand">
+      <img src="https://qualityconferenceoman.com/images/pdo-logo.png" class="logo" alt="PDO Logo">
+      <div class="brand-divider"></div>
+      <div class="brand-text">
+        <span class="sys-label">Camp Hub Pro</span>
+        <span class="sys-name">Visual Management Board</span>
+      </div>
+    </div>
+
+    <div class="titles">
+      <div id="locTrigger" class="loc-pill">
+        <span class="loc-dot"></span>
+        <span id="locNameLabel">Select Site</span>
+        <span style="opacity:0.5; font-size:0.6rem;">▾</span>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <div class="datetime-date" id="curDate"></div>
+      <div class="datetime-time" id="curTime"></div>
+      <div class="version-badge">v4.0 · LIVE</div>
+    </div>
+  </div>
+</header>
+
+<main class="page">
+  <div class="layout">
+    <!-- LEFT: MAIN CONTENT -->
+    <div class="col-main">
+      <!-- Executive Summary -->
+      <div class="section-header">
+        <div class="section-header-line"></div>
+        <span class="section-title">Executive Health Summary</span>
+        <span class="section-count" id="execCount">—</span>
+      </div>
+      <div id="executiveSummary" class="exec-grid"></div>
+
+      <!-- KPI Matrix -->
+      <div class="section-header" style="margin-top:8px;">
+        <div class="section-header-line"></div>
+        <span class="section-title">Contractor Performance Matrix</span>
+      </div>
+      <div id="kpiContainer" class="kpi-grid"></div>
+    </div>
+
+    <!-- RIGHT: GENERAL INFO -->
+    <div class="col-side">
+      <div class="section-header">
+        <div class="section-header-line"></div>
+        <span class="section-title">General Information</span>
+      </div>
+      <div id="infoContainer" class="info-grid"></div>
+    </div>
+  </div>
+</main>
+
+<footer class="app-footer" style="display:none;"></footer>
+
+<script>
+  const SB_URL = 'https://lkufyubfipdaxbjdyodg.supabase.co';
+  const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxrdWZ5dWJmaXBkYXhiamR5b2RnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwNTE5MDIsImV4cCI6MjA4NTYyNzkwMn0.2wUNKYNnoAz4zguIhHAAFfqnzVeZWEDEteKsNxFcYa8';
+  const _supabase = supabase.createClient(SB_URL, SB_KEY);
+
+  let userLocId = localStorage.getItem('userLocationId');
+  let userLocName = localStorage.getItem('userLocationName');
+
+  const PATTERNS = {
+    S12: { cols: 5, rows: ["01100","10010","10000","01100","00010","10010","01100"] },
+    Q12: { cols: 5, rows: ["01110","10001","10001","10010","01101"] },
+    D12: { cols: 5, rows: ["11100","10010","10010","10010","11100"] },
+    P12: { cols: 5, rows: ["11110","10010","11110","10000","10000"] },
+    S53: { cols: 9, rows: ["001111100","011101110","111000111","111100000","011111100","000111111","000000111","111000111","011101110","001111100"] },
+    Q53: { cols: 11, rows: ["00011111000","00110001100","01100000110","11100000111","11100000111","11100110111","01100011110","00111011100","00011110110","00000000011"] },
+    D53: { cols: 9, rows: ["111110000","111111000","110001100","110000110","110000111","110000111","110000111","110000110","110001100","111111000","111110000"] },
+    P53: { cols: 9, rows: ["111111100","110000110","110000110","110000110","111111100","110000000","110000000","110000000","110000000","000000000"] }
+  };
+
+  function getISOWeek(d) {
+    d = new Date(d); d.setHours(0,0,0,0);
+    d.setDate(d.getDate() + 4 - (d.getDay() || 7));
+    return Math.ceil((((d - new Date(d.getFullYear(),0,1)) / 86400000) + 1) / 7);
+  }
+
+  function updateClock() {
+    const now = new Date();
+    document.getElementById('curDate').textContent = now.toLocaleDateString(undefined, { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
+    document.getElementById('curTime').textContent = now.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+  }
+
+  // ══════════════════════════════════════════
+  //  SYNC ALL
+  // ══════════════════════════════════════════
+  async function syncAll() {
+    if (!userLocId) return checkSite();
+    document.getElementById('locNameLabel').textContent = userLocName;
+    await Promise.all([syncKPIs(), syncGeneral()]);
+  }
+
+  // ══════════════════════════════════════════
+  //  GENERAL INFO
+  // ══════════════════════════════════════════
+  async function syncGeneral() {
+    try {
+      const { data: facs } = await _supabase
+        .from('facility_locations').select('*, contractors(name), facilities(facility_type)')
+        .eq('location_id', userLocId);
+
+      const container = document.getElementById('infoContainer');
+      container.innerHTML = '';
+
+      if (!facs || facs.length === 0) { showNoDataNote(container); return; }
+
+      const { data: stats } = await _supabase
+        .from('facility_data').select('*')
+        .in('fac_loc_id', facs.map(f => f.id))
+        .order('updated_at', { ascending: false });
+
+      facs.sort((a, b) => (a.total_rooms > 0 ? 0 : 1) - (b.total_rooms > 0 ? 0 : 1));
+
+      facs.forEach(f => {
+        const d = stats?.find(s => s.fac_loc_id === f.id);
+        if (!d) return;
+
+        const updated = new Date(d.updated_at).toLocaleString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+        const rawName = f.contractors?.name || "";
+        const isPDO = rawName.trim().toUpperCase() === "PDO";
+        let displayName = isPDO ? "PDO" : `${rawName} (${f.prefix_name || f.facilities?.facility_type || "General"})`;
+
+        const card = document.createElement('div');
+        card.className = f.total_rooms > 0 ? 'info-card' : 'info-card utility';
+
+        if (f.total_rooms > 0) {
+          const occ = Math.round((d.occ_rooms / f.total_rooms) * 100);
+          const highOcc = occ >= 80;
+          card.innerHTML = `
+            <div class="info-card-header">
+              <div class="info-card-name">${displayName}</div>
+              <span class="info-type-badge badge-housing">Housing</span>
+            </div>
+            <div class="metrics-row">
+              <div class="metric-item">
+                <span class="metric-lbl">Blocks</span>
+                <span class="metric-val">${f.num_blocks || 0}</span>
+                <span class="metric-sub">Assets</span>
+              </div>
+              <div class="metric-item">
+                <span class="metric-lbl">Mandays</span>
+                <span class="metric-val">${d.mandays}</span>
+                <span class="metric-sub">Last 24h</span>
+              </div>
+              <div class="metric-item">
+                <span class="metric-lbl">Rooms</span>
+                <span class="metric-val">${d.occ_rooms}</span>
+                <span class="metric-sub">of ${f.total_rooms}</span>
+              </div>
+            </div>
+            <div class="occ-bar-wrap">
+              <div class="occ-bar-label">
+                <span>Occupancy</span>
+                <span style="color:${highOcc ? '#22c55e' : 'var(--pdo-green-xl)'}; font-weight:700;">${occ}%</span>
+              </div>
+              <div class="occ-bar-bg">
+                <div class="occ-bar-fill ${highOcc ? 'high' : ''}" style="width:${occ}%"></div>
+              </div>
+            </div>
+            <div class="info-update">Updated ${updated}</div>`;
+        } else {
+          card.innerHTML = `
+            <div class="info-card-header">
+              <div class="info-card-name">${displayName}</div>
+              <span class="info-type-badge badge-utility">Utility</span>
+            </div>
+            <div class="metrics-row four">
+              <div class="metric-item">
+                <span class="metric-lbl">Units</span>
+                <span class="metric-val">${f.units_count || 0}</span>
+                <span class="metric-sub">Assets</span>
+              </div>
+              <div class="metric-item">
+                <span class="metric-lbl">Capacity</span>
+                <span class="metric-val">${f.max_capacity}</span>
+                <span class="metric-sub">m³/day</span>
+              </div>
+              <div class="metric-item">
+                <span class="metric-lbl">Received</span>
+                <span class="metric-val">${d.water_rec}</span>
+                <span class="metric-sub">m³</span>
+              </div>
+              <div class="metric-item">
+                <span class="metric-lbl">Treated</span>
+                <span class="metric-val">${d.water_treat}</span>
+                <span class="metric-sub">m³</span>
+              </div>
+            </div>
+            <div class="info-update">Updated ${updated}</div>`;
+        }
+        container.appendChild(card);
+      });
+    } catch(e) { console.error("General Sync Error:", e); }
+  }
+
+  function showNoDataNote(container) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">📡</div>
+        <p>No data for ${userLocName}</p>
+        <small>Contact administrator to assign facilities.</small>
+      </div>`;
+  }
+
+  // ══════════════════════════════════════════
+  //  KPI SYNC
+  // ══════════════════════════════════════════
+  async function syncKPIs() {
+    try {
+      const [configRes, conRes, perfRes, facRes, facLocRes] = await Promise.all([
+        _supabase.from('contractor_kpis').select('*').eq('location_id', userLocId),
+        _supabase.from('contractors').select('*'),
+        _supabase.from('kpi_performance').select('*'),
+        _supabase.from('facilities').select('id, facility_type'),
+        _supabase.from('facility_locations').select('*').eq('location_id', userLocId)
+      ]);
+
+      const configs   = configRes.data || [];
+      const contractors = conRes.data || [];
+      const performance = perfRes.data || [];
+      const facilities  = facRes.data || [];
+      const facLocs     = facLocRes.data || [];
+
+      const container = document.getElementById('kpiContainer');
+      if (configs.length === 0) {
+        container.innerHTML = `<div class="empty-state"><div class="icon">📊</div><p>No KPIs assigned to ${userLocName}.</p></div>`;
+        return;
+      }
+
+      const grouped = {};
+      configs.forEach(conf => {
+        const contractor = contractors.find(c => String(c.id).toLowerCase() === String(conf.contractor_id).toLowerCase());
+        const cName = contractor ? contractor.name : "Contractor";
+
+        let fSuffix = "General";
+        const mapping = facLocs.find(fl => String(fl.contractor_id).toLowerCase() === String(conf.contractor_id).toLowerCase());
+        if (mapping) {
+          if (mapping.prefix_name && mapping.prefix_name.trim() !== "") fSuffix = mapping.prefix_name;
+          else {
+            const baseType = facilities.find(f => String(f.id).toLowerCase() === String(mapping.facility_id).toLowerCase());
+            if (baseType) fSuffix = baseType.facility_type;
+          }
+        }
+
+        const displayName = `${cName} (${fSuffix})`;
+        if (!grouped[displayName]) grouped[displayName] = {};
+
+        const code = (conf.kpi_code || "S53").toUpperCase().trim();
+        grouped[displayName][code] = {
+          scores: {},
+          green: parseFloat(conf.green_threshold || 90),
+          gray:  parseFloat(conf.gray_threshold  || 80),
+          lastUpdate: null
+        };
+
+        const records = performance.filter(p =>
+          String(p.kpi_assignment_id) === String(conf.id) ||
+          String(p.contractor_kpi_id) === String(conf.id)
+        );
+
+        let latestDate = null;
+        records.forEach(r => {
+          const date = new Date(r.entry_date);
+          if (!latestDate || date > latestDate) latestDate = date;
+          const index = code.includes('12') ? (date.getMonth() + 1) : getISOWeek(date);
+          grouped[displayName][code].scores[index] = parseFloat(r.actual_value);
+        });
+
+        if (latestDate) {
+          grouped[displayName][code].lastUpdate = latestDate.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+        }
+      });
+
+      renderKPIs(grouped);
+    } catch(err) { console.error("KPI Sync Error:", err); }
+  }
+
+  // ══════════════════════════════════════════
+  //  RENDER KPIs + SUMMARY
+  // ══════════════════════════════════════════
+  function renderKPIs(grouped) {
+    const container = document.getElementById('kpiContainer');
+    const summaryContainer = document.getElementById('executiveSummary');
+    const execCount = document.getElementById('execCount');
+    container.innerHTML = '';
+    summaryContainer.innerHTML = '';
+
+    const names = Object.keys(grouped).sort();
+    execCount.textContent = `${names.length} contractors`;
+
+    names.forEach((cName, idx) => {
+      // ── Executive Card ──
+      let totalSum = 0, count = 0, greenT = 90, grayT = 80;
+      let latestScore = null;
+
+      Object.keys(grouped[cName]).forEach(code => {
+        const k = grouped[cName][code];
+        const scores = Object.values(k.scores);
+        if (scores.length > 0) {
+          latestScore = scores[scores.length - 1];
+          totalSum += latestScore;
+          count++;
+          greenT = k.green; grayT = k.gray;
+        }
+      });
+
+      const avg = count > 0 ? (totalSum / count) : null;
+      let statusClass = 'status-gray', tagClass = 'tag-nodata', tagText = 'No Data';
+      let faceColor = '#4b5563';
+      let eyeR = 2.2, mouthD = 'M13 22 Q18 22 23 22'; // neutral
+
+      if (avg !== null) {
+        if (avg >= greenT) {
+          statusClass = 'status-green'; tagClass = 'tag-green'; tagText = 'ON TRACK';
+          faceColor = '#10b981';
+          mouthD = 'M13 22 Q18 27 23 22'; // happy
+        } else if (avg >= grayT) {
+          statusClass = 'status-gray'; tagClass = 'tag-gray'; tagText = 'MONITOR';
+          faceColor = '#6b7280';
+          mouthD = 'M13 23 Q18 23 23 23'; // flat
+        } else {
+          statusClass = 'status-red'; tagClass = 'tag-red'; tagText = 'AT RISK';
+          faceColor = '#ef4444';
+          mouthD = 'M13 26 Q18 21 23 26'; // sad
+        }
+      }
+
+      const faceSvg = `<svg class="face-svg" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="18" cy="18" r="16" fill="${faceColor}" fill-opacity="0.15" stroke="${faceColor}" stroke-width="2"/>
+        <circle cx="13" cy="14" r="${eyeR}" fill="${faceColor}"/>
+        <circle cx="23" cy="14" r="${eyeR}" fill="${faceColor}"/>
+        <path d="${mouthD}" stroke="${faceColor}" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+      </svg>`;
+
+      const execCard = document.createElement('div');
+      execCard.className = `exec-card ${statusClass}`;
+      execCard.style.animationDelay = `${idx * 0.06}s`;
+      execCard.innerHTML = `
+        ${faceSvg}
+        <div class="exec-info">
+          <div class="exec-name">${cName}</div>
+          <div class="exec-status-tag ${tagClass}">${tagText}</div>
+        </div>`;
+      summaryContainer.appendChild(execCard);
+
+      // ── KPI Card (no % badge) ──
+      const card = document.createElement('div');
+      card.className = 'kpi-card';
+      card.style.animationDelay = `${idx * 0.08}s`;
+      card.innerHTML = `
+        <div class="kpi-card-header">
+          <div>
+            <div class="kpi-card-name">${cName}</div>
+            <div class="kpi-card-sub">KPI Performance Tracker</div>
+          </div>
+        </div>
+        <div class="kpi-blocks-wrap"></div>`;
+
+      const blocksWrap = card.querySelector('.kpi-blocks-wrap');
+      const codeKeys = Object.keys(grouped[cName]);
+      if (codeKeys.length > 1) blocksWrap.classList.add('dual');
+
+      codeKeys.forEach(code => {
+        const kData = grouped[cName][code];
+        const p = PATTERNS[code] || PATTERNS['S53'];
+
+        const wrap = document.createElement('div');
+        wrap.className = 'letter-wrap';
+
+        const grid = document.createElement('div');
+        grid.className = 's-block-grid';
+        grid.style.gridTemplateColumns = `repeat(${p.cols}, 1fr)`;
+
+        let blockNum = 1;
+        p.rows.forEach(row => {
+          row.split('').forEach(cell => {
+            const b = document.createElement('div');
+            b.className = 'kpi-block';
+            if (cell === '1') {
+              const val = kData.scores[blockNum];
+              b.textContent = blockNum;
+              b.title = `Period ${blockNum}${val !== undefined ? ': ' + val + '%' : ': No data'}`;
+              if (val !== undefined) {
+                if (val >= kData.green) b.className += ' green';
+                else if (val >= kData.gray) b.className += ' gray';
+                else b.className += ' red';
+              } else {
+                b.className += ' unset';
+              }
+              blockNum++;
+            } else {
+              b.className += ' empty';
+            }
+            grid.appendChild(b);
+          });
+        });
+
+        wrap.appendChild(grid);
+
+        const legend = document.createElement('div');
+        legend.className = 'kpi-legend';
+        legend.innerHTML = `
+          <div class="legend-pill"><div class="legend-dot" style="background:var(--green)"></div>≥${kData.green}</div>
+          <div class="legend-pill"><div class="legend-dot" style="background:#4b5563"></div>≥${kData.gray}</div>
+          <div class="legend-pill"><div class="legend-dot" style="background:var(--red)"></div>&lt;${kData.gray}</div>`;
+        wrap.appendChild(legend);
+
+        const upd = document.createElement('div');
+        upd.className = 'kpi-last-update';
+        upd.textContent = kData.lastUpdate ? `Updated ${kData.lastUpdate}` : 'No data yet';
+        wrap.appendChild(upd);
+
+        blocksWrap.appendChild(wrap);
+      });
+
+      container.appendChild(card);
+    });
+  }
+
+  // ══════════════════════════════════════════
+  //  SITE SELECTOR
+  // ══════════════════════════════════════════
+  async function checkSite() {
+    const { data } = await _supabase.from('locations').select('*');
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = `
+      <div class="modal-content">
+        <h2>Select Operational Site</h2>
+        <p>Choose your location to load live data</p>
+        <div id="lList"></div>
+      </div>`;
+    data?.forEach(l => {
+      const b = document.createElement('button');
+      b.className = 'loc-btn';
+      b.innerHTML = `<span>${l.name}</span><span style="opacity:0.4;">→</span>`;
+      b.onclick = () => {
+        localStorage.setItem('userLocationId', l.id);
+        localStorage.setItem('userLocationName', l.name);
+        location.reload();
+      };
+      modal.querySelector('#lList').appendChild(b);
+    });
+    document.body.appendChild(modal);
+  }
+
+  document.getElementById('locTrigger').onclick = () => { localStorage.clear(); location.reload(); };
+
+  setInterval(updateClock, 1000);
+  updateClock();
+  syncAll();
+</script>
+</body>
+</html>
